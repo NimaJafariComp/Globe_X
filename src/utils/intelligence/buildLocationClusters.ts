@@ -1,13 +1,11 @@
-import type {
-  GlobeLocationCluster,
-  Modality,
-  SourceDataset,
-  SourceToClusterMap,
-} from "@/types/sourceGraph";
+import type { GlobeLocationCluster, SourceDataset, SourceToClusterMap } from "@/types/sourceGraph";
 import { getSourceLocation } from "./locationFallback";
 
 function clusterIdFor(label: string, lat: number, lng: number) {
-  const normalized = label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const normalized = label
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]+/g, "-")
+    .replaceAll(/^-|-$/g, "");
   return `${normalized || "location"}-${lat.toFixed(3)}-${lng.toFixed(3)}`;
 }
 
@@ -46,12 +44,13 @@ export function buildLocationClusters(dataset: SourceDataset): {
     sourceToCluster[source.id] = cluster.id;
   }
 
-  const clusters = Array.from(byKey.values()).map((cluster) => ({
-    ...cluster,
-    sources: [...cluster.sources].sort((a, b) => a.name.localeCompare(b.name)),
-    modalities: [...cluster.modalities].sort() as Modality[],
-  }));
+  const clusters = [...byKey.values()]
+    .map((cluster) => ({
+      ...cluster,
+      sources: cluster.sources.toSorted((a, b) => a.name.localeCompare(b.name)),
+      modalities: cluster.modalities.toSorted(),
+    }))
+    .toSorted((a, b) => a.id.localeCompare(b.id));
 
-  clusters.sort((a, b) => a.id.localeCompare(b.id));
   return { clusters, sourceToCluster };
 }

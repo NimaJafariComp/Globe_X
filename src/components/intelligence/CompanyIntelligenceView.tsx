@@ -7,11 +7,7 @@ import { searchSources } from "@/utils/intelligence/searchSources";
 import { GlobeSourceMap } from "./GlobeSourceMap";
 import styles from "./CompanyIntelligenceView.module.css";
 
-export function CompanyIntelligenceView({
-  dataset,
-}: {
-  dataset: SourceDataset;
-}) {
+export function CompanyIntelligenceView({ dataset }: { dataset: SourceDataset }) {
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
   const [activeClusterId, setActiveClusterId] = useState<string | null>(null);
   const [selectedModality, setSelectedModality] = useState<Modality | null>(null);
@@ -23,17 +19,14 @@ export function CompanyIntelligenceView({
     setWebGpuAvailable(
       typeof navigator !== "undefined" &&
         "gpu" in navigator &&
-        Boolean((navigator as Navigator & { gpu?: unknown }).gpu),
+        Boolean((navigator as Navigator & { gpu?: unknown }).gpu)
     );
   }, []);
 
-  const { clusters, sourceToCluster } = useMemo(
-    () => buildLocationClusters(dataset),
-    [dataset],
-  );
+  const { clusters, sourceToCluster } = useMemo(() => buildLocationClusters(dataset), [dataset]);
   const matchingSourceIds = useMemo(
     () => searchSources(dataset, searchQuery),
-    [dataset, searchQuery],
+    [dataset, searchQuery]
   );
 
   return (

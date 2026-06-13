@@ -27,15 +27,19 @@ Then open http://localhost:3000
 
 ## Scripts
 
-- npm run dev: Start the dev server
-- npm run build: Production build
-- npm run typecheck: TypeScript type checking
-- npm run lint: Next.js linting
+- `npm run dev` — start the dev server
+- `npm run build` — production build
+- `npm run typecheck` — TypeScript type check
+- `npm run lint` — ESLint
+- `npm run lint:fix` — ESLint with auto-fix
+- `npm run format` — Prettier write
+- `npm run format:check` — Prettier check
+- `npm run lint:all` — typecheck + lint + format check
+- `bash scripts/lint.sh` — unified quality gate (same checks, with pass/fail output)
 
 ## Project layout
 
-- src/app/intelligence: Page entry for the intelligence view
-- src/components/intelligence: Globe UI and panels
-- src/utils/intelligence: Clustering and search logic
-- src/data: Sample dataset used for the demo
-
+- `src/app/intelligence` — page entry for the intelligence view
+- `src/components/intelligence` — globe renderer and hover card
+- `src/utils/intelligence` — clustering, search, and coordinate utilities
+- `src/data` — sample dataset used for the demo

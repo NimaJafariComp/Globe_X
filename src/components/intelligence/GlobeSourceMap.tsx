@@ -23,15 +23,15 @@ type Marker = THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial> & {
 
 const RADIUS = 44;
 const LABEL_CONFIG: Record<string, { dx: number; dy: number }> = {
-  "San Francisco": { dx: 14, dy: -28 },
-  "Palo Alto": { dx: 14, dy: -28 },
+  "San Francisco": { dx: 14, dy: -60 },
+  "Palo Alto": { dx: 14, dy: 20 },
   London: { dx: 14, dy: -28 },
 };
 
 export function GlobeSourceMap({
   dataset,
   clusters,
-  sourceToCluster,
+  sourceToCluster: _sourceToCluster,
   activeSourceId,
   activeClusterId,
   selectedModality,
@@ -67,7 +67,7 @@ export function GlobeSourceMap({
     cluster: GlobeLocationCluster;
   } | null>(null);
   const [labels, setLabels] = useState<
-    Array<{ id: string; x: number; y: number; cluster: GlobeLocationCluster }>
+    { id: string; x: number; y: number; cluster: GlobeLocationCluster }[]
   >([]);
   const hq = dataset.company.headquarters ?? DEFAULT_COMPANY_HQ;
 
@@ -97,11 +97,11 @@ export function GlobeSourceMap({
     renderer.domElement.style.display = "block";
     renderer.domElement.style.width = "100%";
     renderer.domElement.style.height = "100%";
-    container.appendChild(renderer.domElement);
+    container.append(renderer.domElement);
 
-    const ambient = new THREE.AmbientLight(0x9fb4c2, 0.24);
+    const ambient = new THREE.AmbientLight(0x9f_b4_c2, 0.24);
     scene.add(ambient);
-    const keyLight = new THREE.PointLight(0xe6f6ff, 16, 420);
+    const keyLight = new THREE.PointLight(0xe6_f6_ff, 16, 420);
     keyLight.position.set(-80, 90, 150);
     scene.add(keyLight);
 
@@ -119,10 +119,7 @@ export function GlobeSourceMap({
       const z = -80 - ((index * 29) % 180);
       starPositions.push(x * 2.2, y * 1.7, z);
     }
-    starGeometry.setAttribute(
-      "position",
-      new THREE.Float32BufferAttribute(starPositions, 3),
-    );
+    starGeometry.setAttribute("position", new THREE.Float32BufferAttribute(starPositions, 3));
     const starMaterial = new THREE.PointsMaterial({
       color: "#d9fbff",
       size: 0.42,
@@ -182,7 +179,9 @@ export function GlobeSourceMap({
     for (const cluster of clusters) {
       const material = markerMaterial.clone();
       const marker = new THREE.Mesh(markerGeometry, material) as Marker;
-      marker.position.copy(latLngToVector3(cluster.location.lat, cluster.location.lng, RADIUS + 2.6));
+      marker.position.copy(
+        latLngToVector3(cluster.location.lat, cluster.location.lng, RADIUS + 2.6)
+      );
       marker.scale.setScalar(cluster.count >= 6 ? 1.2 : cluster.count >= 2 ? 1 : 0.86);
       marker.userData.cluster = cluster;
       markers.set(cluster.id, marker);
@@ -224,6 +223,9 @@ export function GlobeSourceMap({
     }
 
     const pointer = new THREE.Vector2(10, 10);
+    const activeColor = new THREE.Color("#ff9a31");
+    const inactiveColor = new THREE.Color("#ff5a00");
+    const scratchVec = new THREE.Vector3();
     let hovered: GlobeLocationCluster | null = null;
     let dragging = false;
     let lastX = 0;
@@ -243,9 +245,7 @@ export function GlobeSourceMap({
       camera.position.z = 340;
       const targetPixels = Math.min(width * 0.42, height * 0.58, 540);
       const visibleHeight =
-        2 *
-        camera.position.z *
-        Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+        2 * camera.position.z * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
       const projectedDiameter = ((RADIUS * 2) / visibleHeight) * height;
       const scale = THREE.MathUtils.clamp(targetPixels / projectedDiameter, 0.5, 0.98);
       group.scale.setScalar(scale);
@@ -322,18 +322,14 @@ export function GlobeSourceMap({
         marker.visible = frontFacing;
         marker.lookAt(camera.position);
         const isActive = isClusterActive(cluster, id, latest.current);
-        marker.material.color.lerp(new THREE.Color(isActive ? "#ff9a31" : "#ff5a00"), 0.18);
+        marker.material.color.lerp(isActive ? activeColor : inactiveColor, 0.18);
         marker.material.opacity = isClusterDim(cluster, latest.current) ? 0.3 : 1;
         const base = cluster.count >= 6 ? 1.2 : cluster.count >= 2 ? 1 : 0.86;
         marker.scale.setScalar(base * (isActive ? 1.42 : 1));
         const arc = arcLines.get(id);
         const material = arc?.material as THREE.LineBasicMaterial | undefined;
         if (material) {
-          material.opacity = isActive
-            ? 1
-            : isClusterDim(cluster, latest.current)
-              ? 0.12
-              : 0.62;
+          material.opacity = isActive ? 1 : isClusterDim(cluster, latest.current) ? 0.12 : 0.62;
         }
       }
 
@@ -349,9 +345,8 @@ export function GlobeSourceMap({
       let closestSq = HIT_R * HIT_R;
       for (const [, marker] of markers) {
         if (!marker.visible) continue;
-        const worldPos = new THREE.Vector3();
-        marker.getWorldPosition(worldPos);
-        const screen = worldToScreen(worldPos, camera, renderer);
+        marker.getWorldPosition(scratchVec);
+        const screen = worldToScreen(scratchVec, camera, renderer);
         if (!screen.visible) continue;
         const dx = screen.x - pxX;
         const dy = screen.y - pxY;
@@ -377,16 +372,15 @@ export function GlobeSourceMap({
 
       if (frame % 4 === 0) {
         const anchors: GlobeClusterAnchorMap = {};
-        const nextLabels: Array<{
+        const nextLabels: {
           id: string;
           x: number;
           y: number;
           cluster: GlobeLocationCluster;
-        }> = [];
+        }[] = [];
         for (const [id, marker] of markers) {
-          const world = new THREE.Vector3();
-          marker.getWorldPosition(world);
-          const anchor = { id, ...worldToScreen(world, camera, renderer) };
+          marker.getWorldPosition(scratchVec);
+          const anchor = { id, ...worldToScreen(scratchVec, camera, renderer) };
           const frontFacing = marker.visible && isFrontFacing(marker, group, camera);
           anchors[id] = { ...anchor, visible: anchor.visible && frontFacing };
           const cluster = marker.userData.cluster;
@@ -406,9 +400,7 @@ export function GlobeSourceMap({
           lastAnchors = anchors;
           onAnchors(anchors);
         }
-        setLabels((current) =>
-          labelsChanged(current, nextLabels) ? nextLabels : current,
-        );
+        setLabels((current) => (labelsChanged(current, nextLabels) ? nextLabels : current));
       }
 
       renderer.render(scene, camera);
@@ -439,10 +431,10 @@ export function GlobeSourceMap({
       markerGeometry.dispose();
       markerMaterial.dispose();
       hqMarker.material.dispose();
-      markers.forEach((marker) => marker.material.dispose());
-      arcLines.forEach((line) => line.geometry.dispose());
-      arcGlowLines.forEach((line) => line.geometry.dispose());
-      arcMaterials.forEach((material) => material.dispose());
+      for (const marker of markers.values()) marker.material.dispose();
+      for (const line of arcLines.values()) line.geometry.dispose();
+      for (const line of arcGlowLines) line.geometry.dispose();
+      for (const material of arcMaterials) material.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };
@@ -450,7 +442,7 @@ export function GlobeSourceMap({
 
   const groupedSources = useMemo(
     () => (hoverCard ? groupSourcesByModality(hoverCard.cluster.sources) : []),
-    [hoverCard],
+    [hoverCard]
   );
 
   return (
@@ -465,8 +457,7 @@ export function GlobeSourceMap({
             {hoverCard.cluster.location.label ?? hoverCard.cluster.id}
           </div>
           <div className={styles.cardMeta}>
-            {hoverCard.cluster.count} clustered sources /{" "}
-            {hoverCard.cluster.modalities.join(", ")}
+            {hoverCard.cluster.count} clustered sources / {hoverCard.cluster.modalities.join(", ")}
           </div>
           {groupedSources.map(([modality, sources]) => (
             <div className={styles.group} key={modality}>
@@ -490,11 +481,7 @@ export function GlobeSourceMap({
         </div>
       ) : null}
       {labels.map((label) => (
-        <div
-          key={label.id}
-          className={styles.globeLabel}
-          style={{ left: label.x, top: label.y }}
-        >
+        <div key={label.id} className={styles.globeLabel} style={{ left: label.x, top: label.y }}>
           <div className={styles.globeLabelName}>{label.cluster.location.label}</div>
           <div className={styles.globeLabelCoords}>
             {formatCoordinate(label.cluster.location.lat, "lat")}
@@ -512,7 +499,7 @@ function createGlobeArcPoints(
   to: THREE.Vector3,
   surfaceRadius: number,
   liftAmount: number,
-  steps: number,
+  steps: number
 ): THREE.Vector3[] {
   const a = from.clone().normalize();
   const b = to.clone().normalize();
@@ -541,15 +528,11 @@ function latLngToVector3(lat: number, lng: number, radius: number) {
   return new THREE.Vector3(
     -radius * Math.sin(phi) * Math.cos(theta),
     radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
+    radius * Math.sin(phi) * Math.sin(theta)
   );
 }
 
-function isFrontFacing(
-  object: THREE.Object3D,
-  globeGroup: THREE.Object3D,
-  camera: THREE.Camera,
-) {
+function isFrontFacing(object: THREE.Object3D, globeGroup: THREE.Object3D, camera: THREE.Camera) {
   const world = new THREE.Vector3();
   const center = new THREE.Vector3();
   object.getWorldPosition(world);
@@ -579,8 +562,7 @@ function createCountryOutlines(radius: number, material: THREE.LineBasicMaterial
 }
 
 function formatCoordinate(value: number, axis: "lat" | "lng") {
-  const direction =
-    axis === "lat" ? (value >= 0 ? "N" : "S") : value >= 0 ? "E" : "W";
+  const direction = axis === "lat" ? (value >= 0 ? "N" : "S") : value >= 0 ? "E" : "W";
   return `${Math.abs(value).toFixed(4)}°${direction}`;
 }
 
@@ -593,14 +575,12 @@ function isClusterActive(
     selectedModality: Modality | null;
     matchingSourceIds: Set<string>;
     searchActive: boolean;
-  },
+  }
 ) {
   return (
     clusterId === state.activeClusterId ||
     cluster.sources.some((source) => source.id === state.activeSourceId) ||
-    (state.selectedModality
-      ? cluster.modalities.includes(state.selectedModality)
-      : false) ||
+    (state.selectedModality ? cluster.modalities.includes(state.selectedModality) : false) ||
     (state.searchActive
       ? cluster.sources.some((source) => state.matchingSourceIds.has(source.id))
       : false)
@@ -613,52 +593,52 @@ function isClusterDim(
     selectedModality: Modality | null;
     matchingSourceIds: Set<string>;
     searchActive: boolean;
-  },
+  }
 ) {
   if (state.selectedModality && !cluster.modalities.includes(state.selectedModality)) {
     return true;
   }
-  if (state.searchActive && !cluster.sources.some((source) => state.matchingSourceIds.has(source.id))) {
+  if (
+    state.searchActive &&
+    !cluster.sources.some((source) => state.matchingSourceIds.has(source.id))
+  ) {
     return true;
   }
   return false;
 }
 
-function groupSourcesByModality(sources: SourceNode[]): Array<[Modality, SourceNode[]]> {
+function groupSourcesByModality(sources: SourceNode[]): [Modality, SourceNode[]][] {
   const groups = new Map<Modality, SourceNode[]>();
   for (const source of sources) {
     const group = groups.get(source.modality) ?? [];
     group.push(source);
     groups.set(source.modality, group);
   }
-  return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
+  return [...groups.entries()].toSorted(([a], [b]) => a.localeCompare(b));
 }
 
-function anchorsChanged(
-  previous: GlobeClusterAnchorMap,
-  next: GlobeClusterAnchorMap,
-) {
+function anchorsChanged(previous: GlobeClusterAnchorMap, next: GlobeClusterAnchorMap) {
   const previousKeys = Object.keys(previous);
   const nextKeys = Object.keys(next);
   if (previousKeys.length !== nextKeys.length) return true;
   for (const key of nextKeys) {
     const a = previous[key];
     const b = next[key];
-    if (!a || a.visible !== b.visible) return true;
+    if (a?.visible !== b.visible) return true;
     if (Math.abs(a.x - b.x) > 0.75 || Math.abs(a.y - b.y) > 0.75) return true;
   }
   return false;
 }
 
 function labelsChanged(
-  previous: Array<{ id: string; x: number; y: number; cluster: GlobeLocationCluster }>,
-  next: Array<{ id: string; x: number; y: number; cluster: GlobeLocationCluster }>,
+  previous: { id: string; x: number; y: number; cluster: GlobeLocationCluster }[],
+  next: { id: string; x: number; y: number; cluster: GlobeLocationCluster }[]
 ) {
   if (previous.length !== next.length) return true;
   for (let index = 0; index < next.length; index += 1) {
     const a = previous[index];
     const b = next[index];
-    if (!a || a.id !== b.id) return true;
+    if (a?.id !== b.id) return true;
     if (Math.abs(a.x - b.x) > 0.75 || Math.abs(a.y - b.y) > 0.75) return true;
   }
   return false;

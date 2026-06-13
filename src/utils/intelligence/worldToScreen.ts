@@ -3,7 +3,7 @@ import * as THREE from "three";
 export function worldToScreen(
   position: THREE.Vector3,
   camera: THREE.Camera,
-  renderer: THREE.WebGLRenderer,
+  renderer: THREE.WebGLRenderer
 ): { x: number; y: number; visible: boolean } {
   const vector = position.clone().project(camera);
   const rect = renderer.domElement.getBoundingClientRect();

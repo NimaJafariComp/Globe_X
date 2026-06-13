@@ -21,3 +21,6 @@ pnpm-debug.log*
 
 # OS
 .DS_Store
+
+# Agent skills / tooling (not project source)
+.agents/
